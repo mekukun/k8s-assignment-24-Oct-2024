@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  serviceName: "nginx"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+          ports:
+            - containerPort: 80
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: my-storage-class
+provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongo-pv-0
+spec:
+  storageClassName: my-storage-class
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data/mongo-pv
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-sts-database-0
+spec:
+  storageClassName: my-storage-class
+  volumeName: mongo-pv-0
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-configmap
+data:
+  ME_CONFIG_MONGODB_URL: "mongodb://root:example@mongo:27017/"
+  ME_CONFIG_BASICAUTH: "false"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongo-secret
+type: Opaque
+data:
+  MONGO_INITDB_ROOT_USERNAME: cm9vdA== #root
+  MONGO_INITDB_ROOT_PASSWORD: ZXhhbXBsZQ== #example
+  ME_CONFIG_MONGODB_ADMINUSERNAME: cm9vdA==
+  ME_CONFIG_MONGODB_ADMINPASSWORD: ZXhhbXBsZQ==
